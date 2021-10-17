@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:tflite/tflite.dart';
+import 'package:google_ml_kit/google_ml_kit.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 
@@ -14,7 +15,9 @@ class _HomeState extends State<Home> {
   bool _loading = true;
   late File _image;
   late List _output;
-  final picker = ImagePicker(); //allows us to pick image from gallery or camera
+  late File _faceCrop;
+  final picker = ImagePicker();
+  bool isBusy = false;
 
   @override
   void initState() {
@@ -48,14 +51,29 @@ class _HomeState extends State<Home> {
   }
 
   classifyImage(File image) async {
-    //this function runs the model on the image
-    var output = await Tflite.runModelOnImage(
-      path: image.path
-    );
-    setState(() {
-      _output = output!;
-      _loading = false;
-    });
+    var o = await detectFaces(image);
+    if (o.length < 1) {
+      setState(() {
+        _output = [{"confidence": 1, "label": "ମୁହଁ ନାହିଁ"}];
+        _loading = false;
+      });
+    } else {
+      //this function runs the model on the image
+      var output = await Tflite.runModelOnImage(
+          path: image.path,
+          imageMean: 127.5,
+          imageStd: 127.5,
+          numResults: 2,
+          threshold: 0.1,
+          asynch: true
+      );
+      print("=> results: ${output}");
+
+      setState(() {
+        _output = output!;
+        _loading = false;
+      });
+    }
   }
 
   loadModel() async {
@@ -66,24 +84,43 @@ class _HomeState extends State<Home> {
 
   pickImage() async {
     //this function to grab the image from camera
-    var image = await picker.getImage(source: ImageSource.camera);
+    var image = await picker.pickImage(source: ImageSource.camera);
     if (image == null) return null;
 
     setState(() {
       _image = File(image.path);
+      _output = [{"confidence": 1, "label": "ଚିହ୍ନଟ ଚାଲିଛି ..."}];
     });
     classifyImage(_image);
   }
 
   pickGalleryImage() async {
     //this function to grab the image from gallery
-    var image = await picker.getImage(source: ImageSource.gallery);
+    var image = await picker.pickImage(source: ImageSource.gallery);
     if (image == null) return null;
 
     setState(() {
       _image = File(image.path);
+      _output = [{"confidence": 1, "label": "ଚିହ୍ନଟ ଚାଲିଛି ..."}];
     });
     classifyImage(_image);
+  }
+
+  detectFaces(File image) async {
+    InputImage input_image = InputImage.fromFile(image);
+    FaceDetector faceDetector =
+    GoogleMlKit.vision.faceDetector(FaceDetectorOptions(
+      enableContours: true,
+      enableClassification: true,
+    ));
+    final faces = await faceDetector.processImage(input_image);
+    print('Found ${faces.length} faces');
+    return faces;
+    // if (mounted) {
+    //   setState(() {
+    //     _faces = faces;
+    //   });
+    // }
   }
 
   @override
@@ -133,20 +170,20 @@ class _HomeState extends State<Home> {
                           ),
                         ),
                         Divider(
-                          height: 25,
+                          height: 10,
                           thickness: 1,
                         ),
                         _output != null
                             ? Text(
-                          'ଫଳାଫଳ ହେଉଛି: ${_output[0]['label']}!',
+                          '${_output[0]['confidence'] > 0.75 ? _output[0]['label'] : "ଚିହ୍ନଟ ହେଲା ନାହିଁ"}',
                           style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w400),
+                              color: Colors.green,
+                              fontSize: 25,
+                              fontWeight: FontWeight.w800),
                         )
                             : Container(),
                         Divider(
-                          height: 25,
+                          height: 10,
                           thickness: 1,
                         ),
                       ],
@@ -174,7 +211,7 @@ class _HomeState extends State<Home> {
                       ),
                     ),
                     SizedBox(
-                      height: 30,
+                      height: 15,
                     ),
                     GestureDetector(
                       onTap: pickGalleryImage,
