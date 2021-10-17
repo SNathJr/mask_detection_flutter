@@ -103,7 +103,7 @@ class _HomeState extends State<Home> {
       ),
       body: Container(
         color: Color(0xFF1A759f),
-        padding: EdgeInsets.symmetric(horizontal: 35, vertical: 50),
+        padding: EdgeInsets.symmetric(horizontal: 35, vertical: 40),
         child: Container(
           alignment: Alignment.center,
           padding: EdgeInsets.all(30),
@@ -122,8 +122,8 @@ class _HomeState extends State<Home> {
                     child: Column(
                       children: [
                         Container(
-                          height: 250,
-                          width: 250,
+                          height: 200,
+                          width: 200,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(30),
                             child: Image.file(
