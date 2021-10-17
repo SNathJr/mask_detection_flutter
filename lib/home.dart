@@ -5,6 +5,7 @@ import 'package:tflite/tflite.dart';
 import 'package:google_ml_kit/google_ml_kit.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 
 class Home extends StatefulWidget {
   @override
@@ -51,16 +52,35 @@ class _HomeState extends State<Home> {
   }
 
   classifyImage(File image) async {
-    var o = await detectFaces(image);
-    if (o.length < 1) {
+    // try to detect faces on image
+    List<Face> faces = await detectFaces(image);
+    // if faces not found return accordingly
+    if (faces.length < 1) {
       setState(() {
         _output = [{"confidence": 1, "label": "ମୁହଁ ନାହିଁ"}];
         _loading = false;
       });
     } else {
+      // get the largest face
+      Face face = faces[0];
+      // convert to bytes
+      final bytes = await image.readAsBytes();
+      // convert to Image
+      img.Image src = img.decodeImage(bytes)!;
+      // take crop of face and resize
+      final face_crop = img.copyResize(img.copyCrop(
+          src,
+          face.boundingBox.left.round(),
+          face.boundingBox.top.round(),
+          face.boundingBox.width.round(),
+          face.boundingBox.height.round()
+      ), width: 224);
+      // save result to temporary path
+      Directory tempDir = await getTemporaryDirectory();
+      File file = await File('${tempDir.path}/tempfile.png').writeAsBytes(img.encodePng(face_crop));
       //this function runs the model on the image
       var output = await Tflite.runModelOnImage(
-          path: image.path,
+          path: file.path,
           imageMean: 127.5,
           imageStd: 127.5,
           numResults: 2,
@@ -175,9 +195,9 @@ class _HomeState extends State<Home> {
                         ),
                         _output != null
                             ? Text(
-                          '${_output[0]['confidence'] > 0.75 ? _output[0]['label'] : "ଚିହ୍ନଟ ହେଲା ନାହିଁ"}',
+                          '${_output[0]['confidence'] > 0.70 ? _output[0]['label'] : "ଚିହ୍ନଟ ହେଲା ନାହିଁ"}',
                           style: TextStyle(
-                              color: Colors.green,
+                              color: Colors.yellowAccent,
                               fontSize: 25,
                               fontWeight: FontWeight.w800),
                         )

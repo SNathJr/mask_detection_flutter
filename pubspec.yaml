@@ -55,6 +55,8 @@ dev_dependencies:
   google_ml_kit: ^0.7.2
   # image package
   image: ^3.0.8
+  # path provider
+  path_provider: ^2.0.5
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
