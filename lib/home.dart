@@ -51,9 +51,44 @@ class _HomeState extends State<Home> {
     return convertedBytes.buffer.asUint8List();
   }
 
+  resizeAndReturnImage(File image, int width) async {
+    // convert to bytes
+    final bytes = await image.readAsBytes();
+    // convert to Image
+    img.Image src = img.decodeImage(bytes)!;
+    // take crop of face and resize
+    final resized = img.copyResize(src, width: width);
+    // save result to temporary path
+    Directory tempDir = await getTemporaryDirectory();
+    // save to a file
+    File file = await File('${tempDir.path}/tempfile1.png').writeAsBytes(img.encodePng(resized));
+    return file;
+  }
+
+  cropAndReturnImage(File image, Face face) async {
+    // convert to bytes
+    final bytes = await image.readAsBytes();
+    // convert to Image
+    img.Image src = img.decodeImage(bytes)!;
+    // take crop of face and resize
+    final face_crop = img.copyResize(img.copyCrop(
+        src,
+        face.boundingBox.left.round(),
+        face.boundingBox.top.round(),
+        face.boundingBox.width.round(),
+        face.boundingBox.height.round()
+    ), width: 224);
+    // save result to temporary path
+    Directory tempDir = await getTemporaryDirectory();
+    // save to a file
+    File file = await File('${tempDir.path}/tempfile2.png').writeAsBytes(img.encodePng(face_crop));
+    return file;
+  }
+
   classifyImage(File image) async {
     // try to detect faces on image
-    List<Face> faces = await detectFaces(image);
+    File resizedImage = await resizeAndReturnImage(image, 400);
+    List<Face> faces = await detectFaces(resizedImage);
     // if faces not found return accordingly
     if (faces.length < 1) {
       setState(() {
@@ -62,25 +97,11 @@ class _HomeState extends State<Home> {
       });
     } else {
       // get the largest face
-      Face face = faces[0];
-      // convert to bytes
-      final bytes = await image.readAsBytes();
-      // convert to Image
-      img.Image src = img.decodeImage(bytes)!;
-      // take crop of face and resize
-      final face_crop = img.copyResize(img.copyCrop(
-          src,
-          face.boundingBox.left.round(),
-          face.boundingBox.top.round(),
-          face.boundingBox.width.round(),
-          face.boundingBox.height.round()
-      ), width: 224);
-      // save result to temporary path
-      Directory tempDir = await getTemporaryDirectory();
-      File file = await File('${tempDir.path}/tempfile.png').writeAsBytes(img.encodePng(face_crop));
+      File face = await cropAndReturnImage(resizedImage, faces[0]);
+
       //this function runs the model on the image
       var output = await Tflite.runModelOnImage(
-          path: file.path,
+          path: face.path,
           imageMean: 127.5,
           imageStd: 127.5,
           numResults: 2,
